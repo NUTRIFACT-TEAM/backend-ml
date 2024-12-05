@@ -6,7 +6,9 @@ import tensorflow as tf
 import cv2
 import numpy as np
 import os
+import json
 from werkzeug.utils import secure_filename
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 # Inisialisasi aplikasi Flask
 app = Flask(__name__)
@@ -20,6 +22,27 @@ bucket_name = 'bucket-nutrifact'  # Ganti dengan nama bucket Anda
 # Load model untuk klasifikasi grade
 model = tf.keras.models.load_model('nutrition_grade_model.h5')
 
+# Fungsi untuk memuat LabelEncoder dari file JSON
+def load_label_encoder_from_json(file_path):
+    with open(file_path, 'r') as f:
+        label_mapping = json.load(f)
+    label_encoder = LabelEncoder()
+    label_encoder.classes_ = np.array(label_mapping["classes"])
+    return label_encoder
+
+# Fungsi untuk memuat Scaler dari file JSON
+def load_scaler_from_json(file_path):
+    with open(file_path, 'r') as f:
+        scaler_params = json.load(f)
+    scaler = StandardScaler()
+    scaler.mean_ = np.array(scaler_params["mean"])
+    scaler.scale_ = np.array(scaler_params["scale"])
+    return scaler
+
+# Memuat LabelEncoder dan Scaler
+le = load_label_encoder_from_json('label_encoder.json')
+scaler = load_scaler_from_json('scaler.json')
+
 # Fungsi untuk mengupload file ke Google Cloud Storage
 def upload_to_gcs(file):
     bucket = storage_client.get_bucket(bucket_name)
@@ -30,21 +53,13 @@ def upload_to_gcs(file):
 
 # Fungsi untuk mengunduh file dari Google Cloud Storage
 def download_from_gcs(image_url):
-    # Extract filename from URL or other logic if needed
     filename = image_url.split("/")[-1]
-
-    # Tentukan path tempat file akan disimpan di local system
     local_path = os.path.join("downloaded_images", filename)
-
-    # Create the folder if it doesn't exist
     if not os.path.exists('downloaded_images'):
         os.makedirs('downloaded_images')
-
-    # Mengunduh file dari GCS
     bucket = storage_client.get_bucket(bucket_name)
     blob = bucket.blob(filename)
     blob.download_to_filename(local_path)
-
     return local_path
 
 # Fungsi untuk ekstraksi teks dari gambar menggunakan Tesseract OCR
@@ -52,36 +67,51 @@ def extract_nutrition_from_image(image_path):
     img = cv2.imread(image_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
     ocr_text = pytesseract.image_to_string(thresh, lang='eng')
     return ocr_text
 
 # Fungsi untuk mengekstraksi informasi gula dan lemak dari teks OCR
 def extract_nutrition_info(ocr_text):
+    print("OCR Text setelah Proses: ", ocr_text)
+    
     lines = ocr_text.split('\n')
     sugar = None
     fat = None
-
     for line in lines:
         if 'sugar' in line.lower() or 'gula' in line.lower():
             sugar = ''.join([char for char in line if char.isdigit() or char == '.'])
         elif 'fat' in line.lower() or 'lemak' in line.lower():
             fat = ''.join([char for char in line if char.isdigit() or char == '.'])
-
     return sugar, fat
 
-# Fungsi untuk menghitung Health Grade berdasarkan gula dan lemak
-def calculate_health_grade(sugar, fat):
-    sugar_100g = float(sugar) if sugar else 0
-    fat_100g = float(fat) if fat else 0
+# Fungsi untuk membuat fitur berdasarkan batasan (boundary) gula dan lemak
+def create_boundary_features(sugar_100g, fat_100g):
+    features = np.zeros(6)
+    features[0] = sugar_100g
+    features[1] = fat_100g
+    features[2] = abs(sugar_100g - 1)
+    features[3] = abs(sugar_100g - 5)
+    features[4] = abs(sugar_100g - 10)
+    features[5] = abs(fat_100g - 2.8)
+    return features
 
-    grade = 'A'
-    if sugar_100g > 5 or fat_100g > 2.8:
-        grade = 'D'
-    elif sugar_100g > 3 or fat_100g > 1.5:
-        grade = 'C'
-    elif sugar_100g > 1 or fat_100g > 0.7:
-        grade = 'B'
+# Fungsi untuk prediksi grade kesehatan menggunakan model ML
+def predict_grade_with_model(sugar, fat, serving_size):
+    # Normalisasi ke per 100g
+    sugar_100g = (float(sugar) / float(serving_size)) * 100
+    fat_100g = (float(fat) / float(serving_size)) * 100
+
+    # Buat fitur
+    features = create_boundary_features(sugar_100g, fat_100g).reshape(1, -1)
+
+    # Normalisasi fitur
+    features_scaled = scaler.transform(features)
+
+    # Prediksi menggunakan model
+    pred = model.predict(features_scaled)
+
+    # Mengambil kelas dengan probabilitas tertinggi
+    grade = le.inverse_transform([np.argmax(pred)])[0]
 
     return grade
 
@@ -103,14 +133,14 @@ def predict():
         img = download_from_gcs(image_url)
 
         # Ekstraksi teks OCR dari gambar
-        ocr_text = extract_nutrition_from_image(img)  # Ubah parameter menjadi img
+        ocr_text = extract_nutrition_from_image(img)
         sugar, fat = extract_nutrition_info(ocr_text)
 
         if not sugar or not fat:
             return jsonify({'error': 'Failed to extract nutrition information from image'}), 400
 
-        # Hitung grade kesehatan produk
-        health_grade = calculate_health_grade(sugar, fat)
+        # Prediksi grade kesehatan menggunakan model
+        health_grade = predict_grade_with_model(sugar, fat, serving_size=100)
 
         # Simpan data produk ke Firestore
         product_data = {
