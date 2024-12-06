@@ -9,6 +9,7 @@ import os
 import json
 from werkzeug.utils import secure_filename
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+import re  # Untuk regex
 
 # Inisialisasi aplikasi Flask
 app = Flask(__name__)
@@ -77,11 +78,20 @@ def extract_nutrition_info(ocr_text):
     lines = ocr_text.split('\n')
     sugar = None
     fat = None
+    
     for line in lines:
+        # Ekstraksi gula menggunakan regex
         if 'sugar' in line.lower() or 'gula' in line.lower():
-            sugar = ''.join([char for char in line if char.isdigit() or char == '.'])
+            sugar_match = re.search(r'(\d+(\.\d+)?)\s*(g|%)', line)  # Mencari angka dengan unit g atau %
+            if sugar_match:
+                sugar = sugar_match.group(1)
+        
+        # Ekstraksi lemak menggunakan regex
         elif 'fat' in line.lower() or 'lemak' in line.lower():
-            fat = ''.join([char for char in line if char.isdigit() or char == '.'])
+            fat_match = re.search(r'(\d+(\.\d+)?)\s*(g|%)', line)  # Mencari angka dengan unit g atau %
+            if fat_match:
+                fat = fat_match.group(1)
+
     return sugar, fat
 
 # Fungsi untuk membuat fitur berdasarkan batasan (boundary) gula dan lemak
