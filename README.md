@@ -1,7 +1,3 @@
-# Nutrifact API
-
-Nutrifact API adalah aplikasi yang dirancang untuk membantu pemain sepak bola muda di Indonesia dalam memantau dan meningkatkan kesehatan serta performa mereka. Dengan mengunggah gambar informasi nutrisi produk makanan, aplikasi ini akan mengekstrak data nutrisi seperti gula dan lemak, kemudian memprediksi grade kesehatan produk tersebut menggunakan model machine learning.
-
 ## Daftar Isi
 
 1. [Tim C242-PS378](#C242-PS378---cc)
