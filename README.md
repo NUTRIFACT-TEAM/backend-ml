@@ -1,6 +1,6 @@
 ## Daftar Isi
 
-1. [Tim C242-PS378](#C242-PS378---cc)
+1. [Team C242-PS378](#C242-PS378---cc)
 2. [Technology](#Technology)
 3. [Requirement](#Requirement)
 4. [Installation Steps](#InstallationSteps)
