@@ -4,12 +4,12 @@ Nutrifact API adalah aplikasi yang dirancang untuk membantu pemain sepak bola mu
 
 ## Daftar Isi
 
-1. [Tim ENTS-H113 - CC](#tim-ents-h113---cc)
+1. [Tim C242-PS378](#C242-PS378---cc)
 2. [Technology](#Technology)
 3. [Requirement](#Requirement)
 4. [Installation Steps](#InstallationSteps)
 
-## Tim ENTS-H113 - CC
+## C242-PS378 - CC
 
 | Bangkit ID    | Nama                     | Learning Path       | Universitas                      |
 |---------------|--------------------------|---------------------|----------------------------------|
