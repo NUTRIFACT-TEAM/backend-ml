@@ -16,7 +16,7 @@
 
 ## Technology
 
-Nutrifact API dibangun menggunakan teknologi berikut:
+Nutrifact API Machine Learning dibangun menggunakan teknologi berikut:
 
 - **Flask:** Framework web ringan untuk membangun API.
 - **Flask-CORS:** Mengelola Cross-Origin Resource Sharing (CORS) untuk memungkinkan permintaan dari domain lain.
